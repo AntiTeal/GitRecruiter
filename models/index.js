@@ -2,10 +2,12 @@
 
 let fs = require('fs');
 let path = require('path');
+let request = require('request');
 let Sequelize = require('sequelize');
 let basename = path.basename(__filename);
 let env = process.env.NODE_ENV || 'development';
 let config = require(__dirname + '/../config/config.js')[env];
+let github = require(__dirname + '/../config/github.js');
 let db = {};
 
 if (config.use_env_variable) {
@@ -33,22 +35,39 @@ Object.keys(db).forEach((modelName) => {
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 db.syncGitHubData = syncGitHubData;
-db.sequelize.sync({force: true})
-.then(function() {
-  db['users'].create({
-    email: 'stewart.dulaney@gmail.com',
-    password: '1234',
-    name: 'Stewart Dulaney',
-    gh_handle: 'sdulaney',
-    gh_avatar_url: 'https://avatars2.githubusercontent.com/u/10219100?v=4',
-    gh_location: 'Los Angeles, CA',
-    gh_blog: 'https://www.stewartdulaney.com',
-    gh_public_repos: 88,
-  });
+db.sequelize.sync({
+    force: true
+  })
+  .then(function() {
+    db['users'].create({
+      email: 'stewart.dulaney@gmail.com',
+      password: '1234',
+      name: 'Stewart Dulaney',
+      gh_handle: 'sdulaney',
+      gh_avatar_url: 'https://avatars2.githubusercontent.com/u/10219100?v=4',
+      gh_location: 'Los Angeles, CA',
+      gh_blog: 'https://www.stewartdulaney.com',
+      gh_public_repos: 88,
+    }).then((user) => {
+      syncGitHubData("sdulaney", user.user_id);
+    });
 
-  let initialJobs = initJobs();
-  db['jobs'].bulkCreate(initialJobs);
-});
+    db['users'].create({
+      email: 'antiteal@gmail.com',
+      password: 'password',
+      name: 'Bryce Casaje',
+      gh_handle: '',
+      gh_avatar_url: '',
+      gh_location: '',
+      gh_blog: '',
+      gh_public_repos: 0,
+    }).then((user) => {
+      syncGitHubData("AntiTeal", user.user_id);
+    });
+
+    let initialJobs = initJobs();
+    db['jobs'].bulkCreate(initialJobs);
+  });
 
 // Helper functions
 /**
@@ -95,31 +114,122 @@ function initCompanies() {
  * @param {number} userid - The user's id in the GitRecruiter database.
  */
 function syncGitHubData(username, userid) {
-  /* TODO */
+  getGitHubUser(username).then((user) => {
+    db['users'].update({
+      gh_handle: user.login,
+      gh_avatar_url: user.avatar_url,
+      gh_location: user.location,
+      gh_blog: user.blog,
+      gh_public_repos: user.public_repos
+    }, {
+      where: {user_id : userid}
+    }); 
+  });
 }
 
 /**
  * Retrieves publicly available information about the specified GitHub account.
  * @param {string} username - The GitHub username.
+ * @return {promise} GitHub user's publicly available information
  */
 function getGitHubUser(username) {
-  /* TODO */
+  var options = {
+    url: `https://api.github.com/users/${username}`,
+    headers: {
+      'User-Agent': 'request'
+    }
+  };
+  return new Promise(function(resolve, reject) {
+    request.get(options, function(err, resp, body) {
+      if (err) {
+        reject(err);
+      }
+      else {
+        resolve(JSON.parse(body));
+      }
+    });
+  });
+}
+
+/**
+ * Retrieves all the repos of a specified user
+ * @param {string} username
+ * @return {promise} GitHub user's repos
+ */
+function getGitHubRepos(username) {
+  var options = {
+    url: `https://api.github.com/users/${username}/repos`,
+    headers: {
+      'Authorization': `token ${github.token}`,
+      'User-Agent': 'request'
+    }
+  };
+  return new Promise(function(resolve, reject) {
+    request.get(options, function(err, resp, body) {
+      if (err) {
+        reject(err);
+      }
+      else {
+        var data = JSON.parse(body),
+            repos = [];
+        data.forEach(repo => {
+          repos.push(repo.full_name);
+        });
+        resolve(repos);
+      }
+    });
+  });
 }
 
 /**
  * Retrieves programming languages for the specified GitHub repository.
  * @param {string} repoName
+ * @return {Promise} Promise object that represents an array of repoName's languages
  */
 function getGitHubRepoLangs(repoName) {
-  /* TODO */
+  var options = {
+    url: `https://api.github.com/repos/${repoName}/languages`,
+    headers: {
+      'Authorization': `token ${github.token}`,
+      'User-Agent': 'request'
+    }
+  };
+  return new Promise(function(resolve, reject) {
+    request.get(options, function(err, resp, body) {
+      if (err) {
+        reject(err);
+      }
+      else {
+        resolve(Object.keys(JSON.parse(body)));
+      }
+    });
+  });
 }
 
 /**
  * Retrieves topics for the specified GitHub repository.
  * @param {string} repoName
+ * @return {Promise} Promise object that represents an array of repoName's topics
  */
 function getGitHubRepoTopics(repoName) {
-  /* TODO */
+  var options = {
+    url: `https://api.github.com/repos/${repoName}/topics`,
+    headers: {
+      'Authorization': `token ${github.token}`,
+      'User-Agent': 'request',
+      'Accept': 'application/vnd.github.mercy-preview+json'
+    }
+  };
+  return new Promise(function(resolve, reject) {
+    request.get(options, function(err, resp, body) {
+      if (err) {
+        reject(err);
+      }
+      else {
+        resolve(JSON.parse(body).names);
+      }
+    });
+  });
 }
 
 module.exports = db;
