@@ -70,3 +70,13 @@ Note: these steps assume you have Node.js and npm installed. You can install bot
 4. Type `npm install` (only do this the first time)
 5. Type `npm start`
 6. Open a web browser and go to http://localhost:3000/
+
+### 4. Generate GitHub API key
+You will need a GitHub API key in order to make requests to GitHub without being rate limited.
+
+#### Steps:
+
+1. Navigate to https://github.com/settings/tokens
+2. Click Generate new token
+3. Name the token GitRecruiter, and click Generate token. (You do not need any scopes selected)
+4. Copy the new personal access token and put it into the `token` setting in `config/github.js`.
