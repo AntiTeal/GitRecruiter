@@ -42,12 +42,12 @@ db.sequelize.sync({
     db['users'].create({
       email: 'stewart.dulaney@gmail.com',
       password: '1234',
-      name: 'Stewart Dulaney',
+      gh_name: '',
       gh_handle: 'sdulaney',
-      gh_avatar_url: 'https://avatars2.githubusercontent.com/u/10219100?v=4',
-      gh_location: 'Los Angeles, CA',
-      gh_blog: 'https://www.stewartdulaney.com',
-      gh_public_repos: 88,
+      gh_avatar_url: '',
+      gh_location: '',
+      gh_blog: '',
+      gh_public_repos: 0,
     }).then((user) => {
       syncGitHubData("sdulaney", user.user_id);
     });
@@ -55,7 +55,7 @@ db.sequelize.sync({
     db['users'].create({
       email: 'antiteal@gmail.com',
       password: 'password',
-      name: 'Bryce Casaje',
+      gh_name: '',
       gh_handle: '',
       gh_avatar_url: '',
       gh_location: '',
@@ -116,7 +116,7 @@ function initCompanies() {
 function syncGitHubData(username, userid) {
   getGitHubUser(username).then((user) => {
     db['users'].update({
-      gh_handle: user.login,
+      gh_name: user.name,
       gh_avatar_url: user.avatar_url,
       gh_location: user.location,
       gh_blog: user.blog,
