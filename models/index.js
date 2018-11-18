@@ -109,6 +109,28 @@ function initCompanies() {
 }
 
 /**
+ * Implements running Promises serially rather than concurrently. An alternative to Promise.all.
+ * Implemented in order to run requests to GitHub's API serially, in order to not get rate limited.
+ * Code taken from https://stackoverflow.com/a/37579083
+ * @param {Array} providers - An array of *functions* that return Promises
+ * @return {Promise} A promise that represents an array of values that are the resolved providers
+ */
+Promise.series = function series(providers) {
+    const ret = Promise.resolve(null);
+    const results = [];
+
+    return providers.reduce(function(result, provider, index) {
+         return result.then(function() {
+            return provider().then(function(val) {
+               results[index] = val;
+            });
+         });
+    }, ret).then(function() {
+        return results;
+    });
+}
+
+/**
  * Retrieves data about a user's GitHub account and writes it to the database.
  * @param {string} username - The GitHub username.
  * @param {number} userid - The user's id in the GitRecruiter database.
@@ -122,8 +144,60 @@ function syncGitHubData(username, userid) {
       gh_blog: user.blog,
       gh_public_repos: user.public_repos
     }, {
-      where: {user_id : userid}
+      where: {user_id: userid}
     }); 
+  });
+  getGitHubRepos(username).then((repos) => {
+    var langPromises = [],
+        topicPromises = [];
+
+    repos.forEach((repo) => {
+      langPromises.push(function() {return getGitHubRepoLangs(repo)});
+    });
+
+    Promise.series(langPromises).then(langData => {
+      var languages = {};
+      langData.forEach((langArray) => {
+        langArray.forEach((langObj) => {
+          if(languages[langObj.lang])
+            languages[langObj.lang] += langObj.bytes;
+          else
+            languages[langObj.lang] = langObj.bytes;
+        });
+      });
+
+      Object.entries(languages).forEach((lang) => {
+        db['user_languages'].upsert({
+          gh_language: lang[0],
+          gh_bytes: lang[1],
+          user_id: userid
+        });
+      });
+
+      repos.forEach((repo) => {
+        topicPromises.push(function() {return getGitHubRepoTopics(repo)});
+      });
+
+      Promise.series(topicPromises).then(topicData => {
+        var topics = {};
+        topicData.forEach((topicArray) => {
+          topicArray.forEach((topic) => {
+            if(topics[topic])
+              topics[topic]++;
+            else
+              topics[topic] = 1;
+          });
+        });
+
+        Object.entries(topics).forEach((topic) => {
+          db['user_topics'].upsert({
+            gh_topic: topic[0],
+            count: topic[1],
+            user_id: userid
+          });
+        });
+      });
+    });
   });
 }
 
@@ -136,6 +210,7 @@ function getGitHubUser(username) {
   var options = {
     url: `https://api.github.com/users/${username}`,
     headers: {
+      'Authorization': `token ${github.token}`,
       'User-Agent': 'request'
     }
   };
@@ -184,8 +259,8 @@ function getGitHubRepos(username) {
 /**
  * Retrieves programming languages for the specified GitHub repository.
  * @param {string} repoName
- * @return {Promise} Promise object that represents an array of repoName's languages
- */
+ * @return {Promise} Promise object that represents an array containing an object with keys lang and bytes
+*/
 function getGitHubRepoLangs(repoName) {
   var options = {
     url: `https://api.github.com/repos/${repoName}/languages`,
@@ -200,7 +275,8 @@ function getGitHubRepoLangs(repoName) {
         reject(err);
       }
       else {
-        resolve(Object.keys(JSON.parse(body)));
+        var data = JSON.parse(body);
+        resolve(Object.keys(data).map(lang => ({lang, bytes: data[lang] })));
       }
     });
   });
