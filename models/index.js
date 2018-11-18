@@ -247,9 +247,9 @@ function getGitHubRepos(username) {
       else {
         var data = JSON.parse(body),
             repos = [];
-        data.forEach(repo => {
+        for (var repo in data) {
           repos.push(repo.full_name);
-        });
+        }
         resolve(repos);
       }
     });
