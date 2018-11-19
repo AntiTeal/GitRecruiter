@@ -4,7 +4,7 @@ module.exports = (sequelize, DataTypes) => {
     user_id: {type: DataTypes.INTEGER.UNSIGNED, allowNull: false, primaryKey: true, autoIncrement: true},
     email: {type: DataTypes.STRING, allowNull: false},
     password: {type: DataTypes.STRING, allowNull: false},
-    gh_name: {type: DataTypes.STRING},
+    name: {type: DataTypes.STRING},
     gh_handle: {type: DataTypes.STRING},
     gh_avatar_url: {type: DataTypes.STRING},
     gh_location: {type: DataTypes.STRING},

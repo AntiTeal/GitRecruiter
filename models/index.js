@@ -42,12 +42,6 @@ db.sequelize.sync({
     db['users'].create({
       email: 'stewart.dulaney@gmail.com',
       password: '1234',
-      gh_name: '',
-      gh_handle: 'sdulaney',
-      gh_avatar_url: '',
-      gh_location: '',
-      gh_blog: '',
-      gh_public_repos: 0,
     }).then((user) => {
       syncGitHubData("sdulaney", user.user_id);
     });
@@ -55,12 +49,6 @@ db.sequelize.sync({
     db['users'].create({
       email: 'antiteal@gmail.com',
       password: 'password',
-      gh_name: '',
-      gh_handle: '',
-      gh_avatar_url: '',
-      gh_location: '',
-      gh_blog: '',
-      gh_public_repos: 0,
     }).then((user) => {
       syncGitHubData("AntiTeal", user.user_id);
     });
@@ -138,7 +126,8 @@ Promise.series = function series(providers) {
 function syncGitHubData(username, userid) {
   getGitHubUser(username).then((user) => {
     db['users'].update({
-      gh_name: user.name,
+      name: user.name,
+      gh_handle: username,
       gh_avatar_url: user.avatar_url,
       gh_location: user.location,
       gh_blog: user.blog,
@@ -159,6 +148,9 @@ function syncGitHubData(username, userid) {
       var languages = {};
       langData.forEach((langArray) => {
         langArray.forEach((langObj) => {
+          if(isNaN(langObj.bytes))
+          	return;
+
           if(languages[langObj.lang])
             languages[langObj.lang] += langObj.bytes;
           else
