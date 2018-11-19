@@ -1,5 +1,10 @@
 <div>
     <h2 class="page-header">User Login</h2>
+    {{#if errors}}
+        {{#each errors}}
+            <div class="alert alert-danger">{{msg}}</div>
+        {{/each}}
+    {{/if}}
     <form method="POST" action="/users/login">
         <div class="form-group">
             <label>Email</label>
